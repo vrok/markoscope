@@ -52,6 +52,11 @@ enum MainMenu {
         windowMenu.addItem(withTitle: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
         windowMenu.addItem(withTitle: "Zoom", action: #selector(NSWindow.performZoom(_:)), keyEquivalent: "")
         windowMenu.addItem(.separator())
+        for (title, action) in [("Close Tabs to the Left", #selector(TabCommands.closeTabsToTheLeft(_:))),
+                                ("Close Tabs to the Right", #selector(TabCommands.closeTabsToTheRight(_:)))] {
+            windowMenu.addItem(withTitle: title, action: action, keyEquivalent: "").target = TabCommands.shared
+        }
+        windowMenu.addItem(.separator())
         windowMenu.addItem(withTitle: "Welcome to Markoscope", action: #selector(AppDelegate.showWelcome(_:)), keyEquivalent: "1")
             .keyEquivalentModifierMask = [.command, .shift]
         windowMenu.addItem(.separator())

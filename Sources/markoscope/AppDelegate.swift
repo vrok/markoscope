@@ -5,6 +5,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private(set) static var isTerminating = false
     func applicationWillFinishLaunching(_ notification: Notification) {
         NSApp.mainMenu = MainMenu.make()
+        TabCommands.shared.install()
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
