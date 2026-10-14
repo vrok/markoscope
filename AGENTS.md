@@ -18,16 +18,19 @@ with the Xcode Command Line Tools — there is no Xcode project, and no `xcodebu
 ## Versioning
 
 - Versions come only from git tags `vMAJOR.MINOR.PATCH` on `main` (semantic versioning).
-  Never write a version number into a file; `Resources/Info.plist` holds placeholders.
+  Never put the app's version in code or `Resources/Info.plist` (it holds placeholders); the only
+  place versions are written by hand is `CHANGELOG.md`.
 - `run.sh` sets `CFBundleShortVersionString` to the latest tag, `CFBundleVersion` to the commit
   count, and `MarkoscopeVersion` to the `git describe` label (e.g. `0.1.0-3-g1a2b3c4-dirty`),
   which the About window and welcome window show.
-- Release with `./release.sh X.Y.Z`: it requires a clean `main` in sync with `origin/main`, tags,
-  builds the DMG, pushes the tag and creates the GitHub release (DMG, checksum, notes from commit
-  subjects since the previous tag). Don't tag or create releases by hand.
+- Every release has a `## X.Y.Z — YYYY-MM-DD` entry in `CHANGELOG.md`: succinct bullet points of
+  user-visible changes, newest version first. Add it (and commit it) before releasing.
+- Release with `./release.sh X.Y.Z`: it requires a clean `main` in sync with `origin/main` and the
+  changelog entry, tags, builds the DMG, pushes the tag and creates the GitHub release (DMG,
+  checksum, the changelog entry as notes). Don't tag or create releases by hand.
 
 ## Commits
 
-- One commit per change, with a descriptive message (commit subjects become release notes).
+- One commit per change, with a descriptive message.
 - Push to `main` on GitHub; `git fetch` and rebase first, since the README is sometimes edited there.
 - Never commit `build/`, `.build/`, `Resources/web/vendor/`, test files, or temporary debug code.

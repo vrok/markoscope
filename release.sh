@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Publishes a Markoscope release: tags vX.Y.Z on main, builds the DMG for that tag and
-# creates a GitHub release with it, a SHA-256 checksum, and notes from the commits since
-# the previous release.
+# creates a GitHub release with it, a SHA-256 checksum, and the version's CHANGELOG.md entry
+# as notes (the entry must exist and be committed first).
 #
 #   ./release.sh 0.2.0
 set -euo pipefail
@@ -23,6 +23,12 @@ git fetch -q origin main --tags
 [[ "$(git rev-parse HEAD)" == "$(git rev-parse origin/main)" ]] || die "main differs from origin/main; pull or push first"
 ! git rev-parse -q --verify "refs/tags/$TAG" >/dev/null || die "$TAG already exists"
 
+# The "## X.Y.Z — date" section of CHANGELOG.md, without its heading.
+CHANGES="$(awk -v version="$VERSION" '
+  /^## / { if (found) exit; found = ($2 == version) ; next }
+  found' CHANGELOG.md | sed -e '/./,$!d')"
+[[ -n "$CHANGES" ]] || die "add a \"## $VERSION — $(date +%Y-%m-%d)\" entry to CHANGELOG.md and commit it first"
+
 PREVIOUS="$(git tag --list 'v[0-9]*' --sort=-v:refname | head -1)"
 if [[ -n "$PREVIOUS" ]]; then
   NEWEST="$(printf '%s\n%s\n' "${PREVIOUS#v}" "$VERSION" | sort -V | tail -1)"
@@ -41,9 +47,7 @@ DMG="$ROOT/build/Markoscope-$VERSION.dmg"
 
 NOTES="$ROOT/build/release-notes.md"
 {
-  echo "## Changes"
-  echo
-  git log --no-merges --pretty='- %s' ${PREVIOUS:+"$PREVIOUS.."}"$TAG"
+  echo "$CHANGES"
   echo
   echo "## Installing"
   echo
