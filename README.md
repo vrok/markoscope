@@ -14,6 +14,7 @@
 - **Mermaid diagrams** from ` ```mermaid ` code blocks
 - **Live reload**: save the file in any editor and the window updates in place
 - **Change history**: every version of the file, with what changed highlighted in red and green
+- **Folders**: open a folder to browse its Markdown files in a sidebar, each opening in a tab
 
 ## Build & run
 

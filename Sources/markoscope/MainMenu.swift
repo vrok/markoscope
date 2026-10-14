@@ -40,7 +40,7 @@ enum MainMenu {
         viewMenu.addItem(withTitle: "Smaller Text", action: #selector(AppDelegate.decreaseTextSize(_:)), keyEquivalent: "-")
         viewMenu.addItem(withTitle: "Actual Size", action: #selector(AppDelegate.resetTextSize(_:)), keyEquivalent: "0")
         viewMenu.addItem(.separator())
-        viewMenu.addItem(withTitle: "Show Outline", action: #selector(DocumentWindowController.toggleOutline(_:)), keyEquivalent: "s")
+        viewMenu.addItem(withTitle: "Show Sidebar", action: #selector(DocumentWindowController.toggleOutline(_:)), keyEquivalent: "s")
             .keyEquivalentModifierMask = [.command, .control]
         viewMenu.addItem(withTitle: "Show History", action: #selector(DocumentWindowController.toggleHistory(_:)), keyEquivalent: "0")
             .keyEquivalentModifierMask = [.command, .option]

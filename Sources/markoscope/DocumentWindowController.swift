@@ -8,11 +8,11 @@ private extension NSToolbarItem.Identifier {
     static let outline = NSToolbarItem.Identifier("outline")
 }
 
-/// One window per open document: a web view that renders the Markdown (see Resources/web),
-/// a collapsible outline on the left, a collapsible version-history pane on the right,
-/// and a toolbar for theme and text size.
-final class DocumentWindowController: NSWindowController, NSToolbarDelegate, WKNavigationDelegate,
-    WKScriptMessageHandler, NSMenuItemValidation {
+/// One window (or tab) per open document: a web view that renders the Markdown (see Resources/web),
+/// a collapsible sidebar on the left (outline, and the folder's files when opened from a folder),
+/// a collapsible version-history pane on the right, and a toolbar for theme and text size.
+final class DocumentWindowController: NSWindowController, NSWindowDelegate, NSToolbarDelegate,
+    WKNavigationDelegate, WKScriptMessageHandler, NSMenuItemValidation {
     private static let messageHandlerName = "markoscope"
     static let markdownExtensions: Set<String> = ["md", "markdown", "mdown", "mkd", "mkdn", "mdwn", "txt"]
 
@@ -23,10 +23,13 @@ final class DocumentWindowController: NSWindowController, NSToolbarDelegate, WKN
     private var pendingReload: DispatchWorkItem?
     private var preferencesObserver: NSObjectProtocol?
     private var paneObservations: [NSKeyValueObservation] = []
+    private var workspaceObserver: NSObjectProtocol?
+    /// Set while the app itself opens a pane, so that isn't saved as the user's choice.
+    private var isAdjustingPanes = false
     private weak var themePopup: NSPopUpButton?
     private weak var textSizeControl: NSSegmentedControl?
 
-    private let outlineController = OutlineViewController()
+    private let sidebarController = SidebarViewController()
     private let outlineItem: NSSplitViewItem
     private let historyController = HistoryViewController()
     private let historyItem: NSSplitViewItem
@@ -58,7 +61,7 @@ final class DocumentWindowController: NSWindowController, NSToolbarDelegate, WKN
         let contentItem = NSSplitViewItem(viewController: contentController)
         contentItem.minimumThickness = 360
 
-        outlineItem = NSSplitViewItem(sidebarWithViewController: outlineController)
+        outlineItem = NSSplitViewItem(sidebarWithViewController: sidebarController)
         outlineItem.canCollapse = true
         outlineItem.minimumThickness = 160
         outlineItem.maximumThickness = 400
@@ -77,7 +80,7 @@ final class DocumentWindowController: NSWindowController, NSToolbarDelegate, WKN
         splitController.view.frame = NSRect(x: 0, y: 0, width: 1140, height: 900)
         container.frame = NSRect(x: 0, y: 0, width: 880, height: 900)
         historyController.view.frame = NSRect(x: 0, y: 0, width: 260, height: 900)
-        outlineController.view.frame = NSRect(x: 0, y: 0, width: 230, height: 900)
+        sidebarController.view.frame = NSRect(x: 0, y: 0, width: 230, height: 900)
         splitController.splitViewItems = [outlineItem, contentItem, historyItem]
 
         let window = NSWindow(
@@ -93,15 +96,21 @@ final class DocumentWindowController: NSWindowController, NSToolbarDelegate, WKN
         window.center()
         super.init(window: window)
         windowFrameAutosaveName = "DocumentWindow"
+        window.delegate = self
 
         messageProxy.target = self
         // Remember whether the panes are open, however they were opened or closed
         // (button, menu, or dragging the divider), for the next window and the next launch.
         paneObservations = [
-            outlineItem.observe(\.isCollapsed) { item, _ in Preferences.shared.showOutline = !item.isCollapsed },
-            historyItem.observe(\.isCollapsed) { item, _ in Preferences.shared.showHistory = !item.isCollapsed },
+            outlineItem.observe(\.isCollapsed) { [weak self] item, _ in
+                if self?.isAdjustingPanes == false { Preferences.shared.showOutline = !item.isCollapsed }
+            },
+            historyItem.observe(\.isCollapsed) { [weak self] item, _ in
+                if self?.isAdjustingPanes == false { Preferences.shared.showHistory = !item.isCollapsed }
+            },
         ]
-        outlineController.onSelectHeading = { [weak self] id in self?.callJS("MV.scrollToHeading", id) }
+        sidebarController.outline.onSelectHeading = { [weak self] id in self?.callJS("MV.scrollToHeading", id) }
+        sidebarController.files.onOpenFile = { [weak self] url in self?.openFromWorkspace(url) }
         historyController.showChanges = showChanges
         historyController.onSelectVersion = { [weak self] id in self?.selectVersion(id) }
         historyController.onShowChangesChanged = { [weak self] on in self?.setShowChanges(on) }
@@ -132,6 +141,7 @@ final class DocumentWindowController: NSWindowController, NSToolbarDelegate, WKN
 
     deinit {
         if let preferencesObserver { NotificationCenter.default.removeObserver(preferencesObserver) }
+        if let workspaceObserver { NotificationCenter.default.removeObserver(workspaceObserver) }
         webView.configuration.userContentController.removeScriptMessageHandler(forName: Self.messageHandlerName)
     }
 
@@ -146,9 +156,9 @@ final class DocumentWindowController: NSWindowController, NSToolbarDelegate, WKN
                       let level = (item["level"] as? NSNumber)?.intValue else { return nil }
                 return OutlineViewController.Heading(id: id, title: title, level: level)
             }
-            outlineController.update(headings: headings)
+            sidebarController.outline.update(headings: headings)
         case "activeHeading":
-            outlineController.setActiveHeading(body["id"] as? String)
+            sidebarController.outline.setActiveHeading(body["id"] as? String)
         default:
             break
         }
@@ -158,7 +168,62 @@ final class DocumentWindowController: NSWindowController, NSToolbarDelegate, WKN
         didSet {
             startWatching()
             refreshHistory()
+            refreshFiles()
             render()
+        }
+    }
+
+    // MARK: - Folder
+
+    /// The folder this document was opened from, if any. Its files are listed in the sidebar,
+    /// and files picked there open as tabs of this window.
+    var workspace: Workspace? {
+        didSet {
+            guard workspace !== oldValue else { return }
+            if let workspaceObserver { NotificationCenter.default.removeObserver(workspaceObserver) }
+            workspaceObserver = nil
+            sidebarController.showsFiles = workspace != nil
+            window?.subtitle = workspace?.root.lastPathComponent ?? ""
+            if let workspace {
+                // Tabs only group with tabs of the same folder.
+                window?.tabbingIdentifier = "workspace:" + workspace.root.path
+                workspaceObserver = NotificationCenter.default.addObserver(
+                    forName: Workspace.didChange, object: workspace, queue: .main
+                ) { [weak self] _ in self?.refreshFiles() }
+                if outlineItem.isCollapsed {
+                    isAdjustingPanes = true
+                    outlineItem.isCollapsed = false
+                    isAdjustingPanes = false
+                }
+            }
+            refreshFiles()
+            window?.invalidateRestorableState()
+        }
+    }
+
+    private func refreshFiles() {
+        guard let workspace else { return }
+        sidebarController.files.update(items: workspace.items, currentFile: markdownDocument?.fileURL)
+    }
+
+    private func openFromWorkspace(_ url: URL) {
+        guard let workspace, let window else { return }
+        (NSDocumentController.shared as? DocumentController)?.open(url, in: workspace, tabbedWith: window)
+    }
+
+    func windowDidBecomeKey(_ notification: Notification) {
+        workspace?.rescan()
+    }
+
+    // Window restoration remembers which folder a tab belongs to.
+    func window(_ window: NSWindow, willEncodeRestorableState state: NSCoder) {
+        state.encode(workspace?.root.path, forKey: "workspace")
+    }
+
+    func window(_ window: NSWindow, didDecodeRestorableState state: NSCoder) {
+        if let path = state.decodeObject(of: NSString.self, forKey: "workspace") as String?,
+           FileManager.default.fileExists(atPath: path) {
+            workspace = Workspace.shared(for: URL(fileURLWithPath: path))
         }
     }
 
@@ -242,7 +307,7 @@ final class DocumentWindowController: NSWindowController, NSToolbarDelegate, WKN
             menuItem.title = historyItem.isCollapsed ? "Show History" : "Hide History"
         }
         if menuItem.action == #selector(toggleOutline(_:)) {
-            menuItem.title = outlineItem.isCollapsed ? "Show Outline" : "Hide Outline"
+            menuItem.title = outlineItem.isCollapsed ? "Show Sidebar" : "Hide Sidebar"
         }
         return true
     }
@@ -323,9 +388,9 @@ final class DocumentWindowController: NSWindowController, NSToolbarDelegate, WKN
             item.label = "Text Size"
             textSizeControl = control
         case .outline:
-            item.image = NSImage(systemSymbolName: "sidebar.left", accessibilityDescription: "Outline")
-            item.label = "Outline"
-            item.toolTip = "Show or hide the outline (⌃⌘S)"
+            item.image = NSImage(systemSymbolName: "sidebar.left", accessibilityDescription: "Sidebar")
+            item.label = "Sidebar"
+            item.toolTip = "Show or hide the sidebar (⌃⌘S)"
             item.isBordered = true
             item.target = self
             item.action = #selector(toggleOutline(_:))

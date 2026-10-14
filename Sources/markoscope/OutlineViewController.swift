@@ -1,6 +1,6 @@
 import AppKit
 
-/// The left-hand pane: the document's headings as a tree. Clicking one scrolls to it,
+/// The document's headings as a tree (shown in the sidebar). Clicking one scrolls to it,
 /// and the section being read is highlighted as the document scrolls.
 final class OutlineViewController: NSViewController, NSOutlineViewDataSource, NSOutlineViewDelegate {
     /// A heading, as reported by the page (see `postOutline` in app.js).
@@ -30,14 +30,7 @@ final class OutlineViewController: NSViewController, NSOutlineViewDataSource, NS
     private let emptyLabel = NSTextField(labelWithString: "No headings")
 
     override func loadView() {
-        let background = FileDropEffectView()
-        background.material = .sidebar
-        background.blendingMode = .behindWindow
-
-        let title = NSTextField(labelWithString: "Outline")
-        title.font = .systemFont(ofSize: NSFont.smallSystemFontSize, weight: .semibold)
-        title.textColor = .secondaryLabelColor
-
+        let root = NSView()
         let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("heading"))
         outlineView.addTableColumn(column)
         outlineView.outlineTableColumn = column
@@ -57,21 +50,19 @@ final class OutlineViewController: NSViewController, NSOutlineViewDataSource, NS
 
         emptyLabel.textColor = .tertiaryLabelColor
 
-        for subview in [title, scrollView, emptyLabel] {
+        for subview in [scrollView, emptyLabel] {
             subview.translatesAutoresizingMaskIntoConstraints = false
-            background.addSubview(subview)
+            root.addSubview(subview)
         }
         NSLayoutConstraint.activate([
-            title.topAnchor.constraint(equalTo: background.safeAreaLayoutGuide.topAnchor, constant: 14),
-            title.leadingAnchor.constraint(equalTo: background.leadingAnchor, constant: 18),
-            scrollView.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 8),
-            scrollView.leadingAnchor.constraint(equalTo: background.leadingAnchor),
-            scrollView.trailingAnchor.constraint(equalTo: background.trailingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: background.bottomAnchor),
-            emptyLabel.centerXAnchor.constraint(equalTo: background.centerXAnchor),
-            emptyLabel.centerYAnchor.constraint(equalTo: background.centerYAnchor),
+            scrollView.topAnchor.constraint(equalTo: root.topAnchor),
+            scrollView.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+            emptyLabel.centerXAnchor.constraint(equalTo: root.centerXAnchor),
+            emptyLabel.centerYAnchor.constraint(equalTo: root.centerYAnchor),
         ])
-        view = background
+        view = root
     }
 
     func update(headings: [Heading]) {

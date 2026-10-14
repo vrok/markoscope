@@ -79,10 +79,10 @@ final class WelcomeWindowController: NSWindowController, NSWindowDelegate, NSTab
         versionLabel.font = .systemFont(ofSize: 11)
         versionLabel.textColor = .tertiaryLabelColor
 
-        let openButton = NSButton(title: "Open a File…", target: self, action: #selector(openFile(_:)))
+        let openButton = NSButton(title: "Open a File or Folder…", target: self, action: #selector(openFile(_:)))
         openButton.bezelStyle = .rounded
         openButton.controlSize = .large
-        let dropHint = NSTextField(labelWithString: "or drop a Markdown file here")
+        let dropHint = NSTextField(labelWithString: "or drop one here")
         dropHint.font = .systemFont(ofSize: 11)
         dropHint.textColor = .tertiaryLabelColor
 
@@ -102,7 +102,7 @@ final class WelcomeWindowController: NSWindowController, NSWindowDelegate, NSTab
         let right = NSVisualEffectView()
         right.material = .sidebar
         right.blendingMode = .behindWindow
-        let header = NSTextField(labelWithString: "Recent Files")
+        let header = NSTextField(labelWithString: "Recent")
         header.font = .systemFont(ofSize: NSFont.smallSystemFontSize, weight: .semibold)
         header.textColor = .secondaryLabelColor
 

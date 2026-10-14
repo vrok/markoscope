@@ -1,7 +1,7 @@
 import AppKit
 import WebKit
 
-/// Opens Markdown files dropped onto a document window, each as its own document.
+/// Opens Markdown files (each as its own document) and folders dropped onto a window.
 /// (Drops on the Dock icon come in through Info.plist's document types instead.)
 enum FileDrop {
     static func markdownURLs(in info: NSDraggingInfo) -> [URL] {
@@ -12,7 +12,9 @@ enum FileDrop {
         let urls = pasteboard.readObjects(
             forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]
         ) as? [URL] ?? []
-        return urls.filter { DocumentWindowController.markdownExtensions.contains($0.pathExtension.lowercased()) }
+        return urls.filter { url in
+            url.hasDirectoryPath || DocumentWindowController.markdownExtensions.contains(url.pathExtension.lowercased())
+        }
     }
 
     static func operation(for info: NSDraggingInfo) -> NSDragOperation {
