@@ -52,6 +52,17 @@ def fibonacci(n: int) -> list[int]:
     return seq[:n]
 ```
 
+```proto
+service Greeter {
+  rpc SayHello(HelloRequest) returns (HelloReply);
+}
+
+message HelloRequest {
+  string name = 1;
+  repeated string tags = 2;
+}
+```
+
 ## Tables
 
 | Theme  | Typeface | Best for              |

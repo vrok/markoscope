@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Syntax highlighting for Protocol Buffers and gRPC (```` ```proto ````, `protobuf`, `grpc` code blocks)
+
 ## 0.1.0 — 2026-10-14
 
 First release.

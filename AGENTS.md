@@ -24,7 +24,8 @@ with the Xcode Command Line Tools — there is no Xcode project, and no `xcodebu
   count, and `MarkoscopeVersion` to the `git describe` label (e.g. `0.1.0-3-g1a2b3c4-dirty`),
   which the About window and welcome window show.
 - Every release has a `## X.Y.Z — YYYY-MM-DD` entry in `CHANGELOG.md`: succinct bullet points of
-  user-visible changes, newest version first. Add it (and commit it) before releasing.
+  user-visible changes, newest version first. Add a bullet under `## Unreleased` with each
+  user-visible change; before releasing, rename that heading to the version and date and commit.
 - Release with `./release.sh X.Y.Z`: it requires a clean `main` in sync with `origin/main` and the
   changelog entry, tags, builds the DMG, pushes the tag and creates the GitHub release (DMG,
   checksum, the changelog entry as notes). Don't tag or create releases by hand.
