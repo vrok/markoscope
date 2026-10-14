@@ -2,8 +2,6 @@ import AppKit
 
 /// Builds the menu bar in code (the app has no nib).
 enum MainMenu {
-    private static let recentFilesMenu = RecentFilesMenu()
-
     static func make() -> NSMenu {
         let appName = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? "Markoscope"
         let mainMenu = NSMenu()
@@ -20,9 +18,7 @@ enum MainMenu {
 
         let fileMenu = submenu(in: mainMenu, title: "File")
         fileMenu.addItem(withTitle: "Open…", action: #selector(NSDocumentController.openDocument(_:)), keyEquivalent: "o")
-        let recentMenu = NSMenu(title: "Open Recent")
-        recentMenu.delegate = recentFilesMenu
-        fileMenu.addItem(withTitle: "Open Recent", action: nil, keyEquivalent: "").submenu = recentMenu
+        // File ▸ Open Recent is added and filled in by AppKit (NSDocumentController).
         fileMenu.addItem(.separator())
         fileMenu.addItem(withTitle: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
         fileMenu.addItem(withTitle: "Reload", action: #selector(DocumentWindowController.reloadDocument(_:)), keyEquivalent: "r")
