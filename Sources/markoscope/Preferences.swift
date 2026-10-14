@@ -26,7 +26,7 @@ enum Theme: String, CaseIterable {
     }
 }
 
-/// App-wide reading preferences, shared by all windows and persisted in ~/.markoscope.toml:
+/// App-wide reading preferences, shared by all windows and persisted in ~/.markoscope/config.toml:
 ///
 ///     theme = "reader"
 ///     font_size = 18
@@ -42,7 +42,11 @@ final class Preferences {
     static let fontSizes = [12, 13, 14, 15, 16, 17, 18, 20, 22, 24, 26, 28, 32]
     static let defaultFontSize = 18
 
-    private let fileURL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".markoscope.toml")
+    /// Markoscope's folder in the home directory, holding config.toml and history (recent files).
+    static let directory = FileManager.default.homeDirectoryForCurrentUser
+        .appendingPathComponent(".markoscope", isDirectory: true)
+
+    private let fileURL = Preferences.directory.appendingPathComponent("config.toml")
 
     var theme: Theme = .reader {
         didSet { changed() }
@@ -81,6 +85,8 @@ final class Preferences {
     private var isLoading = false
 
     private init() {
+        try? FileManager.default.createDirectory(at: Self.directory, withIntermediateDirectories: true)
+        moveLegacyFile()
         isLoading = true
         load()
         isLoading = false
@@ -98,6 +104,14 @@ final class Preferences {
     }
 
     // MARK: - TOML file
+
+    /// Settings used to live in ~/.markoscope.toml.
+    private func moveLegacyFile() {
+        let legacy = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".markoscope.toml")
+        guard FileManager.default.fileExists(atPath: legacy.path),
+              !FileManager.default.fileExists(atPath: fileURL.path) else { return }
+        try? FileManager.default.moveItem(at: legacy, to: fileURL)
+    }
 
     /// Reads the flat `key = value` subset of TOML this file uses; unknown keys are ignored.
     private func load() {

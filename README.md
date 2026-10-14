@@ -29,7 +29,7 @@ The first build downloads the JavaScript libraries (marked, DOMPurify, highlight
 
 ## Settings
 
-Settings are kept in `~/.markoscope.toml`:
+Settings are kept in `~/.markoscope/config.toml`, and recently opened files in `~/.markoscope/history`:
 
 ```toml
 theme = "reader"      # reader, clean, sepia, night
