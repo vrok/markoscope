@@ -1,6 +1,8 @@
 import AppKit
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
+    /// Set once quitting starts, so closing documents doesn't bring up the welcome window.
+    private(set) static var isTerminating = false
     func applicationWillFinishLaunching(_ notification: Notification) {
         NSApp.mainMenu = MainMenu.make()
     }
@@ -15,6 +17,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     }
 
     func applicationShouldOpenUntitledFile(_ sender: NSApplication) -> Bool { false }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        Self.isTerminating = true
+        return .terminateNow
+    }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         if !flag { WelcomeWindowController.shared.show() }

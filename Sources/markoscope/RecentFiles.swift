@@ -1,9 +1,22 @@
 import AppKit
 
-/// Keeps macOS's recent-documents list (File ▸ Open Recent) at the length set in ~/.markoscope.toml.
+/// The app's document controller: keeps the recent-documents list (File ▸ Open Recent) at the
+/// length set in ~/.markoscope.toml, and shows the welcome window when the last document closes.
 /// Created in main.swift so it becomes `NSDocumentController.shared`.
 final class DocumentController: NSDocumentController {
     override var maximumRecentDocumentCount: Int { Preferences.shared.recentFilesCount }
+
+    /// Closing the last document brings back the welcome window.
+    override func removeDocument(_ document: NSDocument) {
+        super.removeDocument(document)
+        guard documents.isEmpty else { return }
+        // Wait a run-loop turn: the closing window is still on screen, and a file may be opening.
+        DispatchQueue.main.async {
+            if self.documents.isEmpty, !AppDelegate.isTerminating {
+                WelcomeWindowController.shared.show()
+            }
+        }
+    }
 
     override func clearRecentDocuments(_ sender: Any?) {
         super.clearRecentDocuments(sender)
