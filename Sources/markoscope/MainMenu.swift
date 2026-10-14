@@ -2,6 +2,8 @@ import AppKit
 
 /// Builds the menu bar in code (the app has no nib).
 enum MainMenu {
+    private static let recentFilesMenu = RecentFilesMenu()
+
     static func make() -> NSMenu {
         let appName = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? "Markoscope"
         let mainMenu = NSMenu()
@@ -19,8 +21,7 @@ enum MainMenu {
         let fileMenu = submenu(in: mainMenu, title: "File")
         fileMenu.addItem(withTitle: "Open…", action: #selector(NSDocumentController.openDocument(_:)), keyEquivalent: "o")
         let recentMenu = NSMenu(title: "Open Recent")
-        // AppKit fills this menu with recent documents because it contains "Clear Menu".
-        recentMenu.addItem(withTitle: "Clear Menu", action: #selector(NSDocumentController.clearRecentDocuments(_:)), keyEquivalent: "")
+        recentMenu.delegate = recentFilesMenu
         fileMenu.addItem(withTitle: "Open Recent", action: nil, keyEquivalent: "").submenu = recentMenu
         fileMenu.addItem(.separator())
         fileMenu.addItem(withTitle: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
@@ -52,6 +53,9 @@ enum MainMenu {
         let windowMenu = submenu(in: mainMenu, title: "Window")
         windowMenu.addItem(withTitle: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
         windowMenu.addItem(withTitle: "Zoom", action: #selector(NSWindow.performZoom(_:)), keyEquivalent: "")
+        windowMenu.addItem(.separator())
+        windowMenu.addItem(withTitle: "Welcome to Markoscope", action: #selector(AppDelegate.showWelcome(_:)), keyEquivalent: "1")
+            .keyEquivalentModifierMask = [.command, .shift]
         windowMenu.addItem(.separator())
         windowMenu.addItem(withTitle: "Bring All to Front", action: #selector(NSApplication.arrangeInFront(_:)), keyEquivalent: "")
         NSApp.windowsMenu = windowMenu

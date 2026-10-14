@@ -6,10 +6,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Launched without a file (e.g. from Finder or the Dock): ask for one, like Preview does.
+        // Launched without a file (e.g. from Finder or the Dock): show the welcome window.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             if NSDocumentController.shared.documents.isEmpty {
-                NSDocumentController.shared.openDocument(nil)
+                WelcomeWindowController.shared.show()
             }
         }
     }
@@ -17,8 +17,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     func applicationShouldOpenUntitledFile(_ sender: NSApplication) -> Bool { false }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        if !flag { NSDocumentController.shared.openDocument(nil) }
+        if !flag { WelcomeWindowController.shared.show() }
         return true
+    }
+
+    @objc func showWelcome(_ sender: Any?) {
+        WelcomeWindowController.shared.show()
     }
 
     // MARK: - View menu actions (reached through the responder chain)

@@ -50,6 +50,22 @@ final class DocumentWebView: WKWebView {
     override func concludeDragOperation(_ sender: NSDraggingInfo?) {}
 }
 
+/// A plain view accepting the same drops (the welcome window's background).
+final class FileDropView: NSView {
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        registerForDraggedTypes([.fileURL])
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) is not supported")
+    }
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation { FileDrop.operation(for: sender) }
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation { FileDrop.operation(for: sender) }
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool { FileDrop.open(sender) }
+}
+
 /// Background of the history pane, accepting the same drops as the web view.
 final class FileDropEffectView: NSVisualEffectView {
     override init(frame: NSRect) {

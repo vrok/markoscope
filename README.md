@@ -35,6 +35,7 @@ font_size = 18        # 12–32
 history_pane = true
 show_changes = false
 merge_window = 5      # seconds; changes this close together count as one version
+recent_files = 5      # files listed in the welcome window and File ▸ Open Recent
 ```
 
 You can edit the file by hand. The app rewrites it whenever you change a setting, so comments you add won't be kept.

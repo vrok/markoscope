@@ -28,6 +28,7 @@ final class MarkdownDocument: NSDocument {
 
     override func makeWindowControllers() {
         addWindowController(DocumentWindowController())
+        WelcomeWindowController.shared.closeIfVisible()
     }
 
     override func read(from data: Data, ofType typeName: String) throws {

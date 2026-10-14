@@ -33,6 +33,7 @@ enum Theme: String, CaseIterable {
 ///     history_pane = true
 ///     show_changes = false
 ///     merge_window = 5
+///     recent_files = 5
 final class Preferences {
     static let shared = Preferences()
     static let didChange = Notification.Name("PreferencesDidChange")
@@ -64,6 +65,11 @@ final class Preferences {
 
     /// File changes less than this many seconds after a version started are merged into it.
     var mergeWindow: TimeInterval = 5 {
+        didSet { changed() }
+    }
+
+    /// How many recently opened files to remember (welcome window and File ▸ Open Recent).
+    var recentFilesCount = 5 {
         didSet { changed() }
     }
 
@@ -110,6 +116,8 @@ final class Preferences {
                 if let flag = Bool(value) { showHistory = flag }
             case "show_changes":
                 if let flag = Bool(value) { showChanges = flag }
+            case "recent_files":
+                if let count = Int(value), (0...50).contains(count) { recentFilesCount = count }
             case "merge_window":
                 if let seconds = Double(value), seconds >= 0 { mergeWindow = seconds }
             default:
@@ -129,6 +137,9 @@ final class Preferences {
 
         # Changes within this many seconds count as one version (0 = keep every change).
         merge_window = \(String(format: "%g", mergeWindow))
+
+        # How many recently opened files to remember (0-50).
+        recent_files = \(recentFilesCount)
 
         """
         do {
