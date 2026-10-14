@@ -42,14 +42,27 @@ if [[ ! -f "$ICON" || "$ROOT/icon.png" -nt "$ICON" || "$ROOT/scripts/app-icon.sw
   iconutil -c icns "$ICONSET" -o "$ICON"
 fi
 
+# ARCHS="arm64 x86_64" builds a universal app (make-dmg.sh does); by default, just this Mac's.
+# Each architecture is compiled on its own and the results merged with lipo.
 echo "→ Compiling"
-swift build -c release --package-path "$ROOT"
-BIN_DIR="$(swift build -c release --package-path "$ROOT" --show-bin-path)"
+if [[ -n "${ARCHS:-}" ]]; then
+  SLICES=()
+  for arch in $ARCHS; do
+    swift build -c release --package-path "$ROOT" --arch "$arch"
+    SLICES+=("$(swift build -c release --package-path "$ROOT" --arch "$arch" --show-bin-path)/$EXECUTABLE")
+  done
+  BINARY="$BUILD_DIR/$EXECUTABLE"
+  mkdir -p "$BUILD_DIR"
+  lipo -create "${SLICES[@]}" -output "$BINARY"
+else
+  swift build -c release --package-path "$ROOT"
+  BINARY="$(swift build -c release --package-path "$ROOT" --show-bin-path)/$EXECUTABLE"
+fi
 
 echo "→ Assembling $APP_NAME.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$BIN_DIR/$EXECUTABLE" "$APP/Contents/MacOS/"
+cp "$BINARY" "$APP/Contents/MacOS/$EXECUTABLE"
 cp "$ROOT/Resources/Info.plist" "$APP/Contents/"
 cp "$ICON" "$APP/Contents/Resources/"
 cp -R "$ROOT/Resources/web" "$APP/Contents/Resources/"

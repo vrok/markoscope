@@ -24,6 +24,7 @@ Requires macOS 13+ and the Xcode Command Line Tools.
 ./run.sh                  # build, then open examples/sample.md
 ./run.sh notes/todo.md    # build, then open a file
 ./run.sh --build-only     # just build build/Markoscope.app
+./make-dmg.sh             # build/Markoscope-<version>.dmg, for Apple silicon and Intel
 ```
 
 The first build downloads the JavaScript libraries (marked, DOMPurify, highlight.js, Mermaid) into `Resources/web/vendor`. After that, the app works offline.
