@@ -30,6 +30,7 @@ enum Theme: String, CaseIterable {
 ///
 ///     theme = "reader"
 ///     font_size = 18
+///     outline_pane = false
 ///     history_pane = true
 ///     show_changes = false
 ///     merge_window = 5
@@ -54,7 +55,11 @@ final class Preferences {
         }
     }
 
-    /// Whether new windows show the history pane / highlight changes (the last used state).
+    /// Whether new windows show the outline / history pane / highlight changes (the last used state).
+    var showOutline = false {
+        didSet { changed() }
+    }
+
     var showHistory = true {
         didSet { changed() }
     }
@@ -112,6 +117,8 @@ final class Preferences {
                 if let theme = Theme(rawValue: value.lowercased()) { self.theme = theme }
             case "font_size":
                 if let size = Int(value) { fontSize = Self.clamp(size) }
+            case "outline_pane":
+                if let flag = Bool(value) { showOutline = flag }
             case "history_pane":
                 if let flag = Bool(value) { showHistory = flag }
             case "show_changes":
@@ -132,6 +139,7 @@ final class Preferences {
         # theme: \(Theme.allCases.map(\.rawValue).joined(separator: ", "))
         theme = "\(theme.rawValue)"
         font_size = \(fontSize)
+        outline_pane = \(showOutline)
         history_pane = \(showHistory)
         show_changes = \(showChanges)
 

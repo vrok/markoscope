@@ -1,5 +1,8 @@
 // Renders Markdown into #content. The native app drives it through window.MV:
 //   MV.load({ markdown, previous, baseURL, scrollToChange })   MV.setTheme(name)   MV.setFontSize(px)
+//   MV.scrollToHeading(id)
+// and the page reports back through the "markoscope" message handler:
+//   { type: 'outline', headings: [{ id, title, level }] }   { type: 'activeHeading', id }
 // When `previous` is given, the changes from it to `markdown` are highlighted (see diff.js).
 (() => {
   'use strict';
@@ -125,6 +128,7 @@
     enhance(root);
     content.replaceChildren(...root.childNodes);
     window.scrollTo(0, scrollY);
+    postOutline();
     updateMinimap();
     await renderDiagrams();
     // Diagrams change the layout height: keep the reader's place, or jump to the first change.
@@ -132,6 +136,47 @@
     if (firstChange) firstChange.scrollIntoView({ block: 'center' });
     else window.scrollTo(0, scrollY);
     updateMinimap();
+    updateActiveHeading();
+  }
+
+  // ---- Outline: headings for the native sidebar, and which section is in view ----
+
+  const post = message => window.webkit?.messageHandlers?.markoscope?.postMessage(message);
+  const headings = () => [...content.querySelectorAll('h1[id], h2[id], h3[id], h4[id], h5[id], h6[id]')];
+  let activeHeading;
+
+  function postOutline() {
+    activeHeading = undefined;
+    post({
+      type: 'outline',
+      headings: headings().map(h => ({ id: h.id, title: h.textContent.trim(), level: Number(h.tagName[1]) })),
+    });
+  }
+
+  // The active heading is the last one above the top quarter of the window.
+  function updateActiveHeading() {
+    const line = window.innerHeight / 4;
+    let id = null;
+    for (const h of headings()) {
+      if (h.getBoundingClientRect().top > line) break;
+      id = h.id;
+    }
+    if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2) {
+      id = headings().at(-1)?.id ?? id; // scrolled to the bottom: the last section is the one in view
+    }
+    if (id === activeHeading) return;
+    activeHeading = id;
+    post({ type: 'activeHeading', id });
+  }
+
+  let headingFrame = 0;
+  window.addEventListener('scroll', () => {
+    cancelAnimationFrame(headingFrame);
+    headingFrame = requestAnimationFrame(updateActiveHeading);
+  }, { passive: true });
+
+  function scrollToHeading(id) {
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   // ---- Change minimap: marks along the right edge, positioned like the scrollbar ----
@@ -205,5 +250,5 @@
   });
 
   configureMermaid();
-  window.MV = { load, setTheme, setFontSize };
+  window.MV = { load, setTheme, setFontSize, scrollToHeading };
 })();

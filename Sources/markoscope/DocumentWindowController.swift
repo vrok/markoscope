@@ -5,11 +5,15 @@ private extension NSToolbarItem.Identifier {
     static let theme = NSToolbarItem.Identifier("theme")
     static let textSize = NSToolbarItem.Identifier("textSize")
     static let history = NSToolbarItem.Identifier("history")
+    static let outline = NSToolbarItem.Identifier("outline")
 }
 
 /// One window per open document: a web view that renders the Markdown (see Resources/web),
-/// a collapsible version-history pane on the right, and a toolbar for theme and text size.
-final class DocumentWindowController: NSWindowController, NSToolbarDelegate, WKNavigationDelegate, NSMenuItemValidation {
+/// a collapsible outline on the left, a collapsible version-history pane on the right,
+/// and a toolbar for theme and text size.
+final class DocumentWindowController: NSWindowController, NSToolbarDelegate, WKNavigationDelegate,
+    WKScriptMessageHandler, NSMenuItemValidation {
+    private static let messageHandlerName = "markoscope"
     static let markdownExtensions: Set<String> = ["md", "markdown", "mdown", "mkd", "mkdn", "mdwn", "txt"]
 
     private let webView: DocumentWebView
@@ -18,9 +22,12 @@ final class DocumentWindowController: NSWindowController, NSToolbarDelegate, WKN
     private var watcher: FileWatcher?
     private var pendingReload: DispatchWorkItem?
     private var preferencesObserver: NSObjectProtocol?
+    private var paneObservations: [NSKeyValueObservation] = []
     private weak var themePopup: NSPopUpButton?
     private weak var textSizeControl: NSSegmentedControl?
 
+    private let outlineController = OutlineViewController()
+    private let outlineItem: NSSplitViewItem
     private let historyController = HistoryViewController()
     private let historyItem: NSSplitViewItem
     /// The version being viewed; nil follows the latest one as the file changes.
@@ -30,12 +37,33 @@ final class DocumentWindowController: NSWindowController, NSToolbarDelegate, WKN
     private var markdownDocument: MarkdownDocument? { document as? MarkdownDocument }
 
     init() {
-        webView = DocumentWebView(frame: .zero, configuration: WKWebViewConfiguration())
+        let configuration = WKWebViewConfiguration()
+        let messageProxy = ScriptMessageProxy()
+        configuration.userContentController.add(messageProxy, name: Self.messageHandlerName)
+        webView = DocumentWebView(frame: .zero, configuration: configuration)
 
+        // The window's content runs under the toolbar (so the outline sidebar can, like in Mail);
+        // the document itself stays below it.
         let contentController = NSViewController()
-        contentController.view = webView
+        let container = NSView()
+        webView.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(webView)
+        NSLayoutConstraint.activate([
+            webView.topAnchor.constraint(equalTo: container.safeAreaLayoutGuide.topAnchor),
+            webView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            webView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            webView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+        ])
+        contentController.view = container
         let contentItem = NSSplitViewItem(viewController: contentController)
         contentItem.minimumThickness = 360
+
+        outlineItem = NSSplitViewItem(sidebarWithViewController: outlineController)
+        outlineItem.canCollapse = true
+        outlineItem.minimumThickness = 160
+        outlineItem.maximumThickness = 400
+        outlineItem.holdingPriority = NSLayoutConstraint.Priority(260)
+        outlineItem.isCollapsed = !Preferences.shared.showOutline
 
         historyItem = NSSplitViewItem(viewController: historyController)
         historyItem.canCollapse = true
@@ -47,13 +75,14 @@ final class DocumentWindowController: NSWindowController, NSToolbarDelegate, WKN
         let splitController = NSSplitViewController()
         splitController.splitView.dividerStyle = .thin
         splitController.view.frame = NSRect(x: 0, y: 0, width: 1140, height: 900)
-        webView.frame = NSRect(x: 0, y: 0, width: 880, height: 900)
+        container.frame = NSRect(x: 0, y: 0, width: 880, height: 900)
         historyController.view.frame = NSRect(x: 0, y: 0, width: 260, height: 900)
-        splitController.splitViewItems = [contentItem, historyItem]
+        outlineController.view.frame = NSRect(x: 0, y: 0, width: 230, height: 900)
+        splitController.splitViewItems = [outlineItem, contentItem, historyItem]
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1140, height: 900),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
@@ -65,6 +94,14 @@ final class DocumentWindowController: NSWindowController, NSToolbarDelegate, WKN
         super.init(window: window)
         windowFrameAutosaveName = "DocumentWindow"
 
+        messageProxy.target = self
+        // Remember whether the panes are open, however they were opened or closed
+        // (button, menu, or dragging the divider), for the next window and the next launch.
+        paneObservations = [
+            outlineItem.observe(\.isCollapsed) { item, _ in Preferences.shared.showOutline = !item.isCollapsed },
+            historyItem.observe(\.isCollapsed) { item, _ in Preferences.shared.showHistory = !item.isCollapsed },
+        ]
+        outlineController.onSelectHeading = { [weak self] id in self?.callJS("MV.scrollToHeading", id) }
         historyController.showChanges = showChanges
         historyController.onSelectVersion = { [weak self] id in self?.selectVersion(id) }
         historyController.onShowChangesChanged = { [weak self] on in self?.setShowChanges(on) }
@@ -95,6 +132,26 @@ final class DocumentWindowController: NSWindowController, NSToolbarDelegate, WKN
 
     deinit {
         if let preferencesObserver { NotificationCenter.default.removeObserver(preferencesObserver) }
+        webView.configuration.userContentController.removeScriptMessageHandler(forName: Self.messageHandlerName)
+    }
+
+    // MARK: - Messages from the page
+
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard let body = message.body as? [String: Any] else { return }
+        switch body["type"] as? String {
+        case "outline":
+            let headings = (body["headings"] as? [[String: Any]] ?? []).compactMap { item -> OutlineViewController.Heading? in
+                guard let id = item["id"] as? String, let title = item["title"] as? String,
+                      let level = (item["level"] as? NSNumber)?.intValue else { return nil }
+                return OutlineViewController.Heading(id: id, title: title, level: level)
+            }
+            outlineController.update(headings: headings)
+        case "activeHeading":
+            outlineController.setActiveHeading(body["id"] as? String)
+        default:
+            break
+        }
     }
 
     override var document: AnyObject? {
@@ -172,15 +229,20 @@ final class DocumentWindowController: NSWindowController, NSToolbarDelegate, WKN
         render(scrollToChange: on)
     }
 
+    @objc func toggleOutline(_ sender: Any?) {
+        outlineItem.animator().isCollapsed.toggle()
+    }
+
     @objc func toggleHistory(_ sender: Any?) {
-        let collapse = !historyItem.isCollapsed
-        historyItem.animator().isCollapsed = collapse
-        Preferences.shared.showHistory = !collapse
+        historyItem.animator().isCollapsed.toggle()
     }
 
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         if menuItem.action == #selector(toggleHistory(_:)) {
             menuItem.title = historyItem.isCollapsed ? "Show History" : "Hide History"
+        }
+        if menuItem.action == #selector(toggleOutline(_:)) {
+            menuItem.title = outlineItem.isCollapsed ? "Show Outline" : "Hide Outline"
         }
         return true
     }
@@ -221,7 +283,8 @@ final class DocumentWindowController: NSWindowController, NSToolbarDelegate, WKN
     // MARK: - Toolbar
 
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        [.flexibleSpace, .theme, .textSize, .history]
+        // Items before the tracking separator sit over the outline sidebar, next to the window buttons.
+        [.outline, .flexibleSpace, .sidebarTrackingSeparator, .flexibleSpace, .theme, .textSize, .history]
     }
 
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
@@ -259,6 +322,13 @@ final class DocumentWindowController: NSWindowController, NSToolbarDelegate, WKN
             item.view = control
             item.label = "Text Size"
             textSizeControl = control
+        case .outline:
+            item.image = NSImage(systemSymbolName: "sidebar.left", accessibilityDescription: "Outline")
+            item.label = "Outline"
+            item.toolTip = "Show or hide the outline (⌃⌘S)"
+            item.isBordered = true
+            item.target = self
+            item.action = #selector(toggleOutline(_:))
         case .history:
             item.image = NSImage(systemSymbolName: "sidebar.right", accessibilityDescription: "History")
             item.label = "History"
@@ -326,5 +396,14 @@ private extension Array {
     subscript(safe index: Int?) -> Element? {
         guard let index, indices.contains(index) else { return nil }
         return self[index]
+    }
+}
+
+/// Forwards page messages without the web view's content controller retaining the window controller.
+private final class ScriptMessageProxy: NSObject, WKScriptMessageHandler {
+    weak var target: WKScriptMessageHandler?
+
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        target?.userContentController(userContentController, didReceive: message)
     }
 }

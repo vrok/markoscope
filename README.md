@@ -34,6 +34,7 @@ Settings are kept in `~/.markoscope.toml`:
 ```toml
 theme = "reader"      # reader, clean, sepia, night
 font_size = 18        # 12–32
+outline_pane = false
 history_pane = true
 show_changes = false
 merge_window = 5      # seconds; changes this close together count as one version
