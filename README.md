@@ -6,7 +6,7 @@
 
 <p align="center">A small, native macOS app for reading Markdown.</p>
 
-<p align="center"><em>Vibe-coded for personal use, but published for everyone who wants to save some time &amp; tokens</em></p>
+<p align="center">Vibe-coded for personal use, but published for everyone who wants to save some time &amp; tokens.</p>
 
 ## Features
 
