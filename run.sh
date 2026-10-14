@@ -28,15 +28,16 @@ fetch "https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js" purify.m
 fetch "https://cdn.jsdelivr.net/npm/@highlightjs/cdn-assets@11.9.0/highlight.min.js" highlight.min.js
 fetch "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js" mermaid.min.js
 
-# The app icon is built from icon.png (rebuilt whenever icon.png changes).
-if [[ ! -f "$ICON" || "$ROOT/icon.png" -nt "$ICON" ]]; then
+# The app icon is built from icon.png, fitted to Apple's icon shape (rebuilt when either changes).
+if [[ ! -f "$ICON" || "$ROOT/icon.png" -nt "$ICON" || "$ROOT/scripts/app-icon.swift" -nt "$ICON" ]]; then
   echo "→ Building app icon"
   ICONSET="$BUILD_DIR/AppIcon.iconset"
   rm -rf "$ICONSET"
   mkdir -p "$ICONSET"
+  swift "$ROOT/scripts/app-icon.swift" "$ROOT/icon.png" "$BUILD_DIR/AppIcon-1024.png"
   for size in 16 32 128 256 512; do
-    sips -z $size $size "$ROOT/icon.png" --out "$ICONSET/icon_${size}x${size}.png" >/dev/null
-    sips -z $((size * 2)) $((size * 2)) "$ROOT/icon.png" --out "$ICONSET/icon_${size}x${size}@2x.png" >/dev/null
+    sips -z $size $size "$BUILD_DIR/AppIcon-1024.png" --out "$ICONSET/icon_${size}x${size}.png" >/dev/null
+    sips -z $((size * 2)) $((size * 2)) "$BUILD_DIR/AppIcon-1024.png" --out "$ICONSET/icon_${size}x${size}@2x.png" >/dev/null
   done
   iconutil -c icns "$ICONSET" -o "$ICON"
 fi
