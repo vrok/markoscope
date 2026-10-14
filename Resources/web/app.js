@@ -1,5 +1,6 @@
 // Renders Markdown into #content. The native app drives it through window.MV:
-//   MV.load({ markdown, baseURL })   MV.setTheme(name)   MV.setFontSize(px)
+//   MV.load({ markdown, previous, baseURL, scrollToChange })   MV.setTheme(name)   MV.setFontSize(px)
+// When `previous` is given, the changes from it to `markdown` are highlighted (see diff.js).
 (() => {
   'use strict';
 
@@ -8,6 +9,9 @@
   const ALLOWED_URI = /^(?:(?:https?|mailto|tel|file|data):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i;
 
   const content = document.getElementById('content');
+  const minimap = document.getElementById('minimap');
+  // Rendering happens in an inert document so images don't load before their URLs are resolved.
+  const scratch = document.implementation.createHTMLDocument('');
   let theme = document.documentElement.dataset.theme;
   let baseURL = '';
   let renderSeq = 0;
@@ -38,6 +42,7 @@
     // GitHub-style heading anchors so [links](#some-heading) work.
     const seen = new Map();
     root.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach(h => {
+      if (h.closest('.diff-del')) return; // removed headings shouldn't steal anchors
       const slug = slugify(h.textContent);
       const count = seen.get(slug) || 0;
       seen.set(slug, count + 1);
@@ -95,20 +100,88 @@
     }
   }
 
-  async function load({ markdown, baseURL: base }) {
+  const sanitize = html => DOMPurify.sanitize(html, { ALLOWED_URI_REGEXP: ALLOWED_URI });
+
+  function parseHTML(html) {
+    const div = scratch.createElement('div');
+    div.innerHTML = html;
+    return div;
+  }
+
+  function renderPlain(markdown) {
+    return parseHTML(sanitize(marked.parse(stripFrontMatter(markdown), { gfm: true })));
+  }
+
+  function renderDiff(previous, markdown) {
+    const lex = md => marked.lexer(stripFrontMatter(md), { gfm: true }).filter(t => t.type !== 'space');
+    const renderToken = tok => [...parseHTML(sanitize(marked.parser([tok], { gfm: true }))).childNodes];
+    return MarkDiff.build(lex(previous), lex(markdown), renderToken, scratch);
+  }
+
+  async function load({ markdown, previous = null, baseURL: base, scrollToChange = false }) {
     baseURL = base || '';
     const scrollY = window.scrollY;
-    const html = DOMPurify.sanitize(marked.parse(stripFrontMatter(markdown), { gfm: true }), {
-      ALLOWED_URI_REGEXP: ALLOWED_URI,
-    });
-    const template = document.createElement('template');
-    template.innerHTML = html;
-    enhance(template.content);
-    content.replaceChildren(template.content);
+    const root = previous == null ? renderPlain(markdown) : renderDiff(previous, markdown);
+    enhance(root);
+    content.replaceChildren(...root.childNodes);
     window.scrollTo(0, scrollY);
+    updateMinimap();
     await renderDiagrams();
-    window.scrollTo(0, scrollY); // diagrams change the layout height; keep the reader's place on reload
+    // Diagrams change the layout height: keep the reader's place, or jump to the first change.
+    const firstChange = scrollToChange && content.querySelector('[data-change]');
+    if (firstChange) firstChange.scrollIntoView({ block: 'center' });
+    else window.scrollTo(0, scrollY);
+    updateMinimap();
   }
+
+  // ---- Change minimap: marks along the right edge, positioned like the scrollbar ----
+
+  const MARK_TITLES = { del: 'Removed', ins: 'Added', mod: 'Changed' };
+
+  function reveal(el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.classList.remove('flash');
+    void el.offsetWidth; // restart the animation
+    el.classList.add('flash');
+  }
+
+  function updateMinimap() {
+    const changed = content.querySelectorAll('[data-change]');
+    minimap.replaceChildren();
+    minimap.hidden = changed.length === 0;
+    if (!changed.length) return;
+
+    const docHeight = document.documentElement.scrollHeight;
+    const track = minimap.clientHeight;
+    let last = null;
+    for (const el of changed) {
+      const rect = el.getBoundingClientRect();
+      const top = ((rect.top + window.scrollY) / docHeight) * track;
+      const height = Math.max(4, (rect.height / docHeight) * track);
+      const kind = el.dataset.change;
+      if (last && last.kind === kind && top <= last.top + last.height + 1) {
+        last.height = Math.max(last.height, top + height - last.top);
+        last.mark.style.height = last.height + 'px';
+        continue;
+      }
+      const mark = document.createElement('div');
+      mark.className = 'mark ' + kind;
+      mark.title = MARK_TITLES[kind];
+      mark.style.top = top + 'px';
+      mark.style.height = height + 'px';
+      mark.addEventListener('click', () => reveal(el));
+      minimap.append(mark);
+      last = { mark, top, height, kind };
+    }
+  }
+
+  let minimapFrame = 0;
+  const scheduleMinimap = () => {
+    cancelAnimationFrame(minimapFrame);
+    minimapFrame = requestAnimationFrame(updateMinimap);
+  };
+  new ResizeObserver(scheduleMinimap).observe(content);
+  window.addEventListener('resize', scheduleMinimap);
 
   function setTheme(name) {
     if (name === theme) return;

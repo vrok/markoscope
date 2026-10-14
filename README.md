@@ -7,6 +7,7 @@ A small, native macOS app for reading Markdown.
 - **Nice themes**: Reader, Clean, Sepia and Night
 - **Mermaid diagrams** from ` ```mermaid ` code blocks
 - **Live reload**: save the file in any editor and the window updates in place
+- **Change history**: every version of the file, with what changed highlighted in red and green
 
 ## Build & run
 
@@ -22,15 +23,18 @@ The first build downloads the JavaScript libraries (marked, DOMPurify, highlight
 
 ## Settings
 
-The last-used theme and text size are kept in `~/.markoscope.toml`:
+Settings are kept in `~/.markoscope.toml`:
 
 ```toml
-theme = "reader"   # reader, clean, sepia, night
-font_size = 18     # 12–32
+theme = "reader"      # reader, clean, sepia, night
+font_size = 18        # 12–32
+history_pane = true
+show_changes = false
+merge_window = 5      # seconds; changes this close together count as one version
 ```
 
 You can edit the file by hand. The app rewrites it whenever you change a setting, so comments you add won't be kept.
 
 ## How it works
 
-The app is AppKit with one `WKWebView` per document window. The Swift side ([Sources/markoscope](Sources/markoscope)) handles files, windows, menus and settings. The page in [Resources/web](Resources/web) turns Markdown into HTML and draws the diagrams. All theme styling lives in [style.css](Resources/web/style.css).
+The app is AppKit with one `WKWebView` per document window. The Swift side ([Sources/markoscope](Sources/markoscope)) handles files, windows, menus, version history and settings. The page in [Resources/web](Resources/web) turns Markdown into HTML, draws the diagrams, and highlights changes between versions ([diff.js](Resources/web/diff.js)). All theme styling lives in [style.css](Resources/web/style.css).

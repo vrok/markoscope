@@ -4,11 +4,12 @@ import WebKit
 private extension NSToolbarItem.Identifier {
     static let theme = NSToolbarItem.Identifier("theme")
     static let textSize = NSToolbarItem.Identifier("textSize")
+    static let history = NSToolbarItem.Identifier("history")
 }
 
-/// One window per open document: a web view that renders the Markdown
-/// (see Resources/web) and a toolbar for picking the theme and text size.
-final class DocumentWindowController: NSWindowController, NSToolbarDelegate, WKNavigationDelegate {
+/// One window per open document: a web view that renders the Markdown (see Resources/web),
+/// a collapsible version-history pane on the right, and a toolbar for theme and text size.
+final class DocumentWindowController: NSWindowController, NSToolbarDelegate, WKNavigationDelegate, NSMenuItemValidation {
     static let markdownExtensions: Set<String> = ["md", "markdown", "mdown", "mkd", "mkdn", "mdwn", "txt"]
 
     private let webView: WKWebView
@@ -20,22 +21,53 @@ final class DocumentWindowController: NSWindowController, NSToolbarDelegate, WKN
     private weak var themePopup: NSPopUpButton?
     private weak var textSizeControl: NSSegmentedControl?
 
+    private let historyController = HistoryViewController()
+    private let historyItem: NSSplitViewItem
+    /// The version being viewed; nil follows the latest one as the file changes.
+    private var selectedVersionID: Int?
+    private var showChanges = Preferences.shared.showChanges
+
     private var markdownDocument: MarkdownDocument? { document as? MarkdownDocument }
 
     init() {
         webView = WKWebView(frame: .zero, configuration: WKWebViewConfiguration())
+
+        let contentController = NSViewController()
+        contentController.view = webView
+        let contentItem = NSSplitViewItem(viewController: contentController)
+        contentItem.minimumThickness = 360
+
+        historyItem = NSSplitViewItem(viewController: historyController)
+        historyItem.canCollapse = true
+        historyItem.minimumThickness = 200
+        historyItem.maximumThickness = 420
+        historyItem.holdingPriority = NSLayoutConstraint.Priority(260) // window resizes go to the document
+        historyItem.isCollapsed = !Preferences.shared.showHistory
+
+        let splitController = NSSplitViewController()
+        splitController.splitView.dividerStyle = .thin
+        splitController.view.frame = NSRect(x: 0, y: 0, width: 1140, height: 900)
+        webView.frame = NSRect(x: 0, y: 0, width: 880, height: 900)
+        historyController.view.frame = NSRect(x: 0, y: 0, width: 260, height: 900)
+        splitController.splitViewItems = [contentItem, historyItem]
+
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 880, height: 900),
+            contentRect: NSRect(x: 0, y: 0, width: 1140, height: 900),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )
         window.minSize = NSSize(width: 420, height: 320)
         window.toolbarStyle = .unified
-        window.contentView = webView
+        window.contentViewController = splitController
+        window.setContentSize(NSSize(width: 1140, height: 900))
         window.center()
         super.init(window: window)
-        windowFrameAutosaveName = "MarkdownDocumentWindow"
+        windowFrameAutosaveName = "DocumentWindow"
+
+        historyController.showChanges = showChanges
+        historyController.onSelectVersion = { [weak self] id in self?.selectVersion(id) }
+        historyController.onShowChangesChanged = { [weak self] on in self?.setShowChanges(on) }
 
         webView.navigationDelegate = self
         webView.allowsMagnification = true
@@ -68,16 +100,31 @@ final class DocumentWindowController: NSWindowController, NSToolbarDelegate, WKN
     override var document: AnyObject? {
         didSet {
             startWatching()
+            refreshHistory()
             render()
         }
     }
 
     // MARK: - Rendering
 
-    private func render() {
-        guard pageLoaded, let doc = markdownDocument else { return }
-        let baseURL = doc.fileURL?.deletingLastPathComponent().absoluteString ?? ""
-        callJS("MV.load", ["markdown": doc.markdown, "baseURL": baseURL])
+    private var displayedIndex: Int? {
+        guard let versions = markdownDocument?.versions, !versions.isEmpty else { return nil }
+        if let selectedVersionID, let index = versions.firstIndex(where: { $0.id == selectedVersionID }) {
+            return index
+        }
+        return versions.count - 1
+    }
+
+    /// Shows the selected version; with "Show changes" on, highlighted against the version before it.
+    private func render(scrollToChange: Bool = false) {
+        guard pageLoaded, let doc = markdownDocument, let index = displayedIndex else { return }
+        let previous: Any = showChanges && index > 0 ? doc.versions[index - 1].text : NSNull()
+        callJS("MV.load", [
+            "markdown": doc.versions[index].text,
+            "previous": previous,
+            "baseURL": doc.fileURL?.deletingLastPathComponent().absoluteString ?? "",
+            "scrollToChange": scrollToChange,
+        ])
     }
 
     private func applyPreferences() {
@@ -106,6 +153,38 @@ final class DocumentWindowController: NSWindowController, NSToolbarDelegate, WKN
         }
     }
 
+    // MARK: - History
+
+    private func refreshHistory() {
+        guard let doc = markdownDocument else { return }
+        historyController.update(versions: doc.versions, selectedID: doc.versions[safe: displayedIndex]?.id)
+    }
+
+    private func selectVersion(_ id: Int) {
+        // Picking the newest version means "follow the file" again.
+        selectedVersionID = id == markdownDocument?.versions.last?.id ? nil : id
+        render(scrollToChange: showChanges)
+    }
+
+    private func setShowChanges(_ on: Bool) {
+        showChanges = on
+        Preferences.shared.showChanges = on
+        render(scrollToChange: on)
+    }
+
+    @objc func toggleHistory(_ sender: Any?) {
+        let collapse = !historyItem.isCollapsed
+        historyItem.animator().isCollapsed = collapse
+        Preferences.shared.showHistory = !collapse
+    }
+
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        if menuItem.action == #selector(toggleHistory(_:)) {
+            menuItem.title = historyItem.isCollapsed ? "Show History" : "Hide History"
+        }
+        return true
+    }
+
     // MARK: - Live reload
 
     @objc func reloadDocument(_ sender: Any?) {
@@ -114,7 +193,9 @@ final class DocumentWindowController: NSWindowController, NSToolbarDelegate, WKN
 
     private func reloadFromDisk() {
         guard let doc = markdownDocument, doc.reloadFromDisk() else { return }
-        render()
+        // A viewed older version doesn't change; only re-render when following the latest.
+        if selectedVersionID == nil || displayedIndex == doc.versions.count - 1 { render() }
+        refreshHistory()
     }
 
     private func startWatching() {
@@ -140,7 +221,7 @@ final class DocumentWindowController: NSWindowController, NSToolbarDelegate, WKN
     // MARK: - Toolbar
 
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        [.flexibleSpace, .theme, .textSize]
+        [.flexibleSpace, .theme, .textSize, .history]
     }
 
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
@@ -178,6 +259,13 @@ final class DocumentWindowController: NSWindowController, NSToolbarDelegate, WKN
             item.view = control
             item.label = "Text Size"
             textSizeControl = control
+        case .history:
+            item.image = NSImage(systemSymbolName: "sidebar.right", accessibilityDescription: "History")
+            item.label = "History"
+            item.toolTip = "Show or hide the version history (⌥⌘0)"
+            item.isBordered = true
+            item.target = self
+            item.action = #selector(toggleHistory(_:))
         default:
             return nil
         }
@@ -231,5 +319,12 @@ final class DocumentWindowController: NSWindowController, NSToolbarDelegate, WKN
         } else if let scheme = url.scheme?.lowercased(), ["http", "https", "mailto"].contains(scheme) {
             NSWorkspace.shared.open(url)
         }
+    }
+}
+
+private extension Array {
+    subscript(safe index: Int?) -> Element? {
+        guard let index, indices.contains(index) else { return nil }
+        return self[index]
     }
 }

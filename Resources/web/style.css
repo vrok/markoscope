@@ -29,6 +29,14 @@
   --tok-attr: #8a6a00;
   --tok-meta: #6b6b6b;
 
+  --diff-del-bg: #fbe4e2;
+  --diff-del-word: #f3b8b2;
+  --diff-del-edge: #d9534f;
+  --diff-ins-bg: #dff3e1;
+  --diff-ins-word: #a8e0b0;
+  --diff-ins-edge: #2e9e48;
+  --diff-mod-edge: #d4a017;
+
   color-scheme: light;
 }
 
@@ -95,6 +103,14 @@ html[data-theme="night"] {
   --tok-title: #8db7e3;
   --tok-attr: #e5c07b;
   --tok-meta: #a3a09a;
+
+  --diff-del-bg: #3d2224;
+  --diff-del-word: #6e3236;
+  --diff-del-edge: #e5636b;
+  --diff-ins-bg: #1f3526;
+  --diff-ins-word: #2f5e3b;
+  --diff-ins-edge: #4cc46a;
+  --diff-mod-edge: #e0b33a;
 
   color-scheme: dark;
 }
@@ -287,3 +303,55 @@ img, video { max-width: 100%; height: auto; border-radius: 4px; }
   margin-bottom: 0.6em;
   white-space: pre-wrap;
 }
+
+/* ---------- Changes ---------- */
+
+.diff-block {
+  margin: 0 -0.8em 1.15em;
+  padding: 0.5em 0.8em 0.5em calc(0.8em - 3px);
+  border-left: 3px solid;
+  border-radius: 6px;
+}
+.diff-block > :first-child { margin-top: 0; }
+.diff-block > :last-child { margin-bottom: 0; }
+.diff-block:has(> h1, > h2, > h3) { margin-top: 1.6em; }
+
+.diff-del { background: var(--diff-del-bg); border-color: var(--diff-del-edge); }
+.diff-ins { background: var(--diff-ins-bg); border-color: var(--diff-ins-edge); }
+.diff-del .diff-word { background: var(--diff-del-word); text-decoration: line-through; text-decoration-color: var(--diff-del-edge); }
+.diff-ins .diff-word { background: var(--diff-ins-word); }
+.diff-word { border-radius: 3px; padding: 0 0.08em; }
+
+li.diff-del, li.diff-ins { border-radius: 4px; padding: 0 0.35em; margin-left: -0.35em; }
+table tr.diff-del > td { background: var(--diff-del-bg); }
+table tr.diff-ins > td { background: var(--diff-ins-bg); }
+
+.flash { animation: flash 1.2s ease-out; }
+@keyframes flash {
+  0%, 30% { box-shadow: 0 0 0 3px var(--diff-mod-edge); }
+  100% { box-shadow: 0 0 0 3px transparent; }
+}
+
+/* Minimap of changes along the right edge, lined up with the scrollbar. */
+#minimap {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 12px;
+  background: color-mix(in srgb, var(--fg) 5%, transparent);
+  pointer-events: none;
+  z-index: 10;
+}
+#minimap[hidden] { display: none; }
+#minimap .mark {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  border-radius: 2px;
+  pointer-events: auto;
+  cursor: pointer;
+}
+#minimap .mark.del { background: var(--diff-del-edge); }
+#minimap .mark.ins { background: var(--diff-ins-edge); }
+#minimap .mark.mod { background: var(--diff-mod-edge); }

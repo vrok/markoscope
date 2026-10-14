@@ -30,6 +30,9 @@ enum Theme: String, CaseIterable {
 ///
 ///     theme = "reader"
 ///     font_size = 18
+///     history_pane = true
+///     show_changes = false
+///     merge_window = 5
 final class Preferences {
     static let shared = Preferences()
     static let didChange = Notification.Name("PreferencesDidChange")
@@ -48,6 +51,20 @@ final class Preferences {
             let clamped = Self.clamp(fontSize)
             if fontSize != clamped { fontSize = clamped } else { changed() }
         }
+    }
+
+    /// Whether new windows show the history pane / highlight changes (the last used state).
+    var showHistory = true {
+        didSet { changed() }
+    }
+
+    var showChanges = false {
+        didSet { changed() }
+    }
+
+    /// File changes less than this many seconds after a version started are merged into it.
+    var mergeWindow: TimeInterval = 5 {
+        didSet { changed() }
     }
 
     private var isLoading = false
@@ -89,6 +106,12 @@ final class Preferences {
                 if let theme = Theme(rawValue: value.lowercased()) { self.theme = theme }
             case "font_size":
                 if let size = Int(value) { fontSize = Self.clamp(size) }
+            case "history_pane":
+                if let flag = Bool(value) { showHistory = flag }
+            case "show_changes":
+                if let flag = Bool(value) { showChanges = flag }
+            case "merge_window":
+                if let seconds = Double(value), seconds >= 0 { mergeWindow = seconds }
             default:
                 break
             }
@@ -101,6 +124,11 @@ final class Preferences {
         # theme: \(Theme.allCases.map(\.rawValue).joined(separator: ", "))
         theme = "\(theme.rawValue)"
         font_size = \(fontSize)
+        history_pane = \(showHistory)
+        show_changes = \(showChanges)
+
+        # Changes within this many seconds count as one version (0 = keep every change).
+        merge_window = \(String(format: "%g", mergeWindow))
 
         """
         do {
