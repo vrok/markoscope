@@ -1,0 +1,35 @@
+syntax = "proto2";
+
+message HelloRequest {
+  required string name = 1;
+  optional int32 count = 2 [default = 10, deprecated = true];
+  repeated string tags = 3 [(validate.rules).repeated.min_items = 1];
+  map<string, int64> scores = 4;
+  google.protobuf.Timestamp sent_at = 5;
+  Status status = 6;
+
+  oneof contact {
+    string email = 7;
+    bytes avatar = 8;
+  }
+
+  message Nested {
+    double ratio = 1;
+    bool enabled = 2;
+  }
+
+  reserved 9, 15 to max;
+  reserved "old_field";
+  extensions 100 to 199;
+}
+
+enum Status {
+  option allow_alias = true;
+  STATUS_UNSPECIFIED = 0;
+  STATUS_ACTIVE = 1;
+  STATUS_RUNNING = 1;
+}
+
+extend HelloRequest {
+  optional float score = 100;
+}

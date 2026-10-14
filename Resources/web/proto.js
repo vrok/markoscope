@@ -2,7 +2,8 @@
 // used for ```proto, ```protobuf, ```proto3 and ```grpc code blocks.
 hljs.registerLanguage('protobuf', hljs => {
   const IDENT = /[A-Za-z_][A-Za-z0-9_]*/;
-  const OPTION_NAME = /\(\s*\.?[A-Za-z_][\w.]*\s*\)/;
+  // A custom option's name, with any field path after it: (validate.rules).repeated.min_items
+  const OPTION_NAME = /\(\s*\.?[A-Za-z_][\w.]*\s*\)(?:\.[A-Za-z_]\w*)*/;
   return {
     name: 'Protocol Buffers',
     aliases: ['proto', 'proto2', 'proto3', 'grpc'],

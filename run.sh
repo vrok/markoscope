@@ -11,22 +11,9 @@ APP_NAME="Markoscope"
 EXECUTABLE="markoscope"
 BUILD_DIR="$ROOT/build"
 APP="$BUILD_DIR/$APP_NAME.app"
-VENDOR="$ROOT/Resources/web/vendor"
 ICON="$BUILD_DIR/AppIcon.icns"
 
-# JavaScript libraries are downloaded once and bundled, so the app works offline.
-fetch() {
-  local url="$1" dest="$VENDOR/$2"
-  [[ -s "$dest" ]] && return
-  echo "→ Downloading $2"
-  curl -fsSL "$url" -o "$dest.tmp"
-  mv "$dest.tmp" "$dest"
-}
-mkdir -p "$VENDOR"
-fetch "https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js" marked.min.js
-fetch "https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js" purify.min.js
-fetch "https://cdn.jsdelivr.net/npm/@highlightjs/cdn-assets@11.9.0/highlight.min.js" highlight.min.js
-fetch "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js" mermaid.min.js
+"$ROOT/scripts/fetch-vendor.sh"
 
 # The app icon is built from icon.png, fitted to Apple's icon shape (rebuilt when either changes).
 if [[ ! -f "$ICON" || "$ROOT/icon.png" -nt "$ICON" || "$ROOT/scripts/app-icon.swift" -nt "$ICON" ]]; then

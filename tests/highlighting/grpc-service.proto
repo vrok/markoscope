@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package greeter.v1;
+
+import "google/api/annotations.proto";
+import public "google/protobuf/timestamp.proto";
+
+option go_package = "example.com/greeter/v1;greeterv1";
+
+// The greeting service.
+service Greeter {
+  // Unary call with an HTTP mapping.
+  rpc SayHello(HelloRequest) returns (HelloReply) {
+    option (google.api.http) = { get: "/v1/hello/{name}" };
+  }
+  /* Streams in both directions. */
+  rpc Chat(stream ChatMessage) returns (stream ChatMessage);
+  rpc Watch(.greeter.v1.WatchRequest) returns (stream google.protobuf.Timestamp) {}
+}

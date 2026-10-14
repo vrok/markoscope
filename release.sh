@@ -35,6 +35,9 @@ if [[ -n "$PREVIOUS" ]]; then
   [[ "$NEWEST" == "$VERSION" && "$PREVIOUS" != "$TAG" ]] || die "$TAG must be newer than $PREVIOUS"
 fi
 
+echo "→ Running tests"
+"$ROOT/test.sh"
+
 echo "→ Tagging $TAG"
 git tag -a "$TAG" -m "Markoscope $VERSION"
 # Until the tag is pushed, a failed build leaves nothing behind.

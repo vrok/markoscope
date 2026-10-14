@@ -15,6 +15,17 @@ with the Xcode Command Line Tools — there is no Xcode project, and no `xcodebu
 - The app icon is generated from `icon.png` by `scripts/app-icon.swift` (fitted to Apple's icon
   shape so macOS 26 doesn't put it on a grey plate).
 
+## Testing
+
+- `./test.sh` runs the tests (also run by `release.sh`); run it after changing anything in
+  `Resources/web/`.
+- Syntax highlighting has golden-file tests: each `tests/highlighting/NAME.LANG` is highlighted
+  as LANG by the app's own highlight.js and grammars (in JavaScriptCore) and compared with
+  `NAME.LANG.tokens`. When changing a grammar, add or extend a sample, run `./test.sh --update`,
+  and check the `.tokens` diff is what you intended before committing it.
+- XCTest and Swift Testing don't work with only the Command Line Tools, so tests are Swift
+  scripts run by `test.sh`.
+
 ## Versioning
 
 - Versions come only from git tags `vMAJOR.MINOR.PATCH` on `main` (semantic versioning).

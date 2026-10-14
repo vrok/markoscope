@@ -1,0 +1,36 @@
+keyword: syntax
+string: "proto3"
+keyword: package
+keyword: import
+string: "google/api/annotations.proto"
+keyword: import
+keyword: public
+string: "google/protobuf/timestamp.proto"
+keyword: option
+string: "example.com/greeter/v1;greeterv1"
+comment: // The greeting service.
+keyword: service
+title.class: Greeter
+comment: // Unary call with an HTTP mapping.
+keyword: rpc
+title.function: SayHello
+type: HelloRequest
+keyword: returns
+type: HelloReply
+keyword: option
+meta: (google.api.http)
+string: "/v1/hello/{name}"
+comment: /* Streams in both directions. */
+keyword: rpc
+title.function: Chat
+keyword: stream
+type: ChatMessage
+keyword: returns
+keyword: stream
+type: ChatMessage
+keyword: rpc
+title.function: Watch
+type: greeter.v1.WatchRequest
+keyword: returns
+keyword: stream
+type: google.protobuf.Timestamp
