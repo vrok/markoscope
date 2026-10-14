@@ -16,6 +16,12 @@
 - **Change history**: every version of the file, with what changed highlighted in red and green
 - **Folders**: open a folder to browse its Markdown files in a sidebar, each opening in a tab
 
+## Installing
+
+Download the DMG from [Releases](https://github.com/vrok/markoscope/releases), open it and drag Markoscope to Applications.
+
+The app isn't notarized by Apple, so macOS blocks it the first time: open it, click **Done**, then go to **System Settings ▸ Privacy & Security** and click **Open Anyway** next to the Markoscope message. After that it opens normally.
+
 ## Build & run
 
 Requires macOS 13+ and the Xcode Command Line Tools.
