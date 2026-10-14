@@ -18,7 +18,7 @@ final class HistoryViewController: NSViewController, NSTableViewDataSource, NSTa
     }
 
     override func loadView() {
-        let background = NSVisualEffectView()
+        let background = FileDropEffectView()
         background.material = .sidebar
         background.blendingMode = .behindWindow
 

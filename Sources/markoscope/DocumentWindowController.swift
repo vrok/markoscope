@@ -12,7 +12,7 @@ private extension NSToolbarItem.Identifier {
 final class DocumentWindowController: NSWindowController, NSToolbarDelegate, WKNavigationDelegate, NSMenuItemValidation {
     static let markdownExtensions: Set<String> = ["md", "markdown", "mdown", "mkd", "mkdn", "mdwn", "txt"]
 
-    private let webView: WKWebView
+    private let webView: DocumentWebView
     private let pageURL = Bundle.main.url(forResource: "index", withExtension: "html", subdirectory: "web")!
     private var pageLoaded = false
     private var watcher: FileWatcher?
@@ -30,7 +30,7 @@ final class DocumentWindowController: NSWindowController, NSToolbarDelegate, WKN
     private var markdownDocument: MarkdownDocument? { document as? MarkdownDocument }
 
     init() {
-        webView = WKWebView(frame: .zero, configuration: WKWebViewConfiguration())
+        webView = DocumentWebView(frame: .zero, configuration: WKWebViewConfiguration())
 
         let contentController = NSViewController()
         contentController.view = webView
