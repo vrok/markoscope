@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Builds a universal (Apple silicon + Intel) Markoscope.app and packages it as
-# build/Markoscope-<version>.dmg, with a shortcut to Applications to drag it onto.
+# build/Markoscope-<version>.dmg (version from git, see run.sh), with a shortcut to
+# Applications to drag it onto.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -8,7 +9,7 @@ APP="$ROOT/build/Markoscope.app"
 
 ARCHS="arm64 x86_64" "$ROOT/run.sh" --build-only
 
-VERSION="$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP/Contents/Info.plist")"
+VERSION="$(/usr/libexec/PlistBuddy -c "Print :MarkoscopeVersion" "$APP/Contents/Info.plist")"
 DMG="$ROOT/build/Markoscope-$VERSION.dmg"
 STAGING="$ROOT/build/dmg"
 

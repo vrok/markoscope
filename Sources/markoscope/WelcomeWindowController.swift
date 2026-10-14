@@ -71,11 +71,10 @@ final class WelcomeWindowController: NSWindowController, NSWindowDelegate, NSTab
         icon.imageScaling = .scaleProportionallyUpOrDown
         let name = NSTextField(labelWithString: "Markoscope")
         name.font = .systemFont(ofSize: 30, weight: .semibold)
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
         let tagline = NSTextField(labelWithString: "A calm place to read Markdown")
         tagline.font = .systemFont(ofSize: 13)
         tagline.textColor = .secondaryLabelColor
-        let versionLabel = NSTextField(labelWithString: "Version \(version)")
+        let versionLabel = NSTextField(labelWithString: "Version \(AppDelegate.version)")
         versionLabel.font = .systemFont(ofSize: 11)
         versionLabel.textColor = .tertiaryLabelColor
 

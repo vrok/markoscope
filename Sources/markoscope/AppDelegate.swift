@@ -29,6 +29,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         return true
     }
 
+    /// The full version, e.g. "0.1.0" for a release or "0.1.0-3-g1a2b3c4" for a build after it (set by run.sh).
+    static var version: String {
+        Bundle.main.object(forInfoDictionaryKey: "MarkoscopeVersion") as? String
+            ?? Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+    }
+
+    @objc func showAbout(_ sender: Any?) {
+        NSApp.orderFrontStandardAboutPanel(options: [.applicationVersion: Self.version])
+    }
+
     @objc func showWelcome(_ sender: Any?) {
         WelcomeWindowController.shared.show()
     }

@@ -29,6 +29,8 @@ Requires macOS 13+ and the Xcode Command Line Tools.
 
 The first build downloads the JavaScript libraries (marked, DOMPurify, highlight.js, Mermaid) into `Resources/web/vendor`. After that, the app works offline.
 
+Releases are tagged `vX.Y.Z` and published on GitHub with a DMG by `./release.sh X.Y.Z`; the app's version comes from those tags.
+
 ## Settings
 
 Settings are kept in `~/.markoscope/config.toml`, and recently opened files in `~/.markoscope/history`:

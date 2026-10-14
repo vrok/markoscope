@@ -59,11 +59,27 @@ else
   BINARY="$(swift build -c release --package-path "$ROOT" --show-bin-path)/$EXECUTABLE"
 fi
 
-echo "→ Assembling $APP_NAME.app"
+# The version comes from git tags (vX.Y.Z, see release.sh): the latest tag is the version,
+# the commit count the build number, and builds after a tag are labelled like git describe
+# (e.g. 0.1.0-3-g1a2b3c4, plus -dirty for uncommitted changes).
+TAG="$(git -C "$ROOT" describe --tags --match 'v[0-9]*' --abbrev=0 2>/dev/null || echo v0.0.0)"
+VERSION="${TAG#v}"
+BUILD_NUMBER="$(git -C "$ROOT" rev-list --count HEAD 2>/dev/null || echo 0)"
+VERSION_LABEL="$(git -C "$ROOT" describe --tags --match 'v[0-9]*' --dirty 2>/dev/null || true)"
+if [[ -z "$VERSION_LABEL" ]]; then
+  VERSION_LABEL="$VERSION-g$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+  git -C "$ROOT" diff --quiet HEAD 2>/dev/null || VERSION_LABEL+="-dirty"
+fi
+VERSION_LABEL="${VERSION_LABEL#v}"
+
+echo "→ Assembling $APP_NAME.app ($VERSION_LABEL)"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BINARY" "$APP/Contents/MacOS/$EXECUTABLE"
 cp "$ROOT/Resources/Info.plist" "$APP/Contents/"
+PLIST="$APP/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" -c "Set :CFBundleVersion $BUILD_NUMBER" \
+  -c "Add :MarkoscopeVersion string $VERSION_LABEL" "$PLIST"
 cp "$ICON" "$APP/Contents/Resources/"
 cp -R "$ROOT/Resources/web" "$APP/Contents/Resources/"
 codesign --force --sign - "$APP" >/dev/null 2>&1
