@@ -1,6 +1,10 @@
-# Markoscope
+<p align="center">
+  <img src="icon.png" width="160" alt="Markoscope icon">
+</p>
 
-A small, native macOS app for reading Markdown.
+<h1 align="center">Markoscope</h1>
+
+<p align="center">A small, native macOS app for reading Markdown.</p>
 
 ## Features
 

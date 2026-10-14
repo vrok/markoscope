@@ -12,7 +12,7 @@ EXECUTABLE="markoscope"
 BUILD_DIR="$ROOT/build"
 APP="$BUILD_DIR/$APP_NAME.app"
 VENDOR="$ROOT/Resources/web/vendor"
-ICON="$ROOT/Resources/AppIcon.icns"
+ICON="$BUILD_DIR/AppIcon.icns"
 
 # JavaScript libraries are downloaded once and bundled, so the app works offline.
 fetch() {
@@ -28,11 +28,16 @@ fetch "https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js" purify.m
 fetch "https://cdn.jsdelivr.net/npm/@highlightjs/cdn-assets@11.9.0/highlight.min.js" highlight.min.js
 fetch "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js" mermaid.min.js
 
-if [[ ! -f "$ICON" ]]; then
-  echo "→ Generating app icon"
+# The app icon is built from icon.png (rebuilt whenever icon.png changes).
+if [[ ! -f "$ICON" || "$ROOT/icon.png" -nt "$ICON" ]]; then
+  echo "→ Building app icon"
   ICONSET="$BUILD_DIR/AppIcon.iconset"
   rm -rf "$ICONSET"
-  swift "$ROOT/scripts/make-icon.swift" "$ICONSET"
+  mkdir -p "$ICONSET"
+  for size in 16 32 128 256 512; do
+    sips -z $size $size "$ROOT/icon.png" --out "$ICONSET/icon_${size}x${size}.png" >/dev/null
+    sips -z $((size * 2)) $((size * 2)) "$ROOT/icon.png" --out "$ICONSET/icon_${size}x${size}@2x.png" >/dev/null
+  done
   iconutil -c icns "$ICONSET" -o "$ICON"
 fi
 
@@ -48,6 +53,7 @@ cp "$ROOT/Resources/Info.plist" "$APP/Contents/"
 cp "$ICON" "$APP/Contents/Resources/"
 cp -R "$ROOT/Resources/web" "$APP/Contents/Resources/"
 codesign --force --sign - "$APP" >/dev/null 2>&1
+touch "$APP" # so Finder and the Dock pick up a changed icon
 echo "✓ Built $APP"
 
 [[ "${1:-}" == "--build-only" ]] && exit 0
